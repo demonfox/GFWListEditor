@@ -18,8 +18,10 @@ class Application(Frame):
         topFrame.pack(fill=X)
         self.nameInput = Entry(topFrame)
         self.nameInput.pack(fill=X, expand=True)
-        self.alertButton = Button(topFrame, text='Search', command=self.loadGFWList)
-        self.alertButton.pack(side=LEFT)
+        self.loadButton = Button(topFrame, text='Load', command=self.loadGFWList)
+        self.loadButton.pack(side=LEFT)
+        self.searchButton = Button(topFrame, text='Search', command=self.searchGFWList)
+        self.searchButton.pack(side=LEFT)
 
         bottomFrame = Frame(self)
         bottomFrame.pack(fill=BOTH, expand=True)
@@ -33,7 +35,7 @@ class Application(Frame):
 #        name = self.nameInput.get() or 'world'
 #        messagebox.showinfo('Message', 'Hello, %s' % name)
         self.listBox.delete(0, self.listBox.size())
-        with open('/Users/demonfox/.ShadowsocksX/gfwlist.js', 'r') as f:
+        with open('/Users/demonfox/.ShadowsocksX/test.js', 'r') as f:
             startOfRules = "var rules = ["
             endOfRules = "];"
             isEnumeratingRules = False
@@ -45,6 +47,14 @@ class Application(Frame):
                     isEnumeratingRules = False
                 if isEnumeratingRules:
                     self.listBox.insert(END, line.strip().strip('\",'))
+
+    def searchGFWList(self):
+        itemToSearchFor = self.nameInput.get().strip()
+        for index in range(self.listBox.size()):
+            if itemToSearchFor == self.listBox.get(index):
+                messagebox.showinfo('Message', 'yes')
+                self.listBox.selection_set(index)
+                self.listBox.see(index)
 
 app = Application()
 app.mainloop()
