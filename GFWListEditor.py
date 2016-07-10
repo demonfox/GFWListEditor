@@ -3,6 +3,8 @@ import tkinter.messagebox as messagebox
 
 class Application(Frame):
     def __init__(self, master=None):
+        self.lastSearchedItem = ''
+        self.lastSearchedItemIndex = -1
         Frame.__init__(self, master)
         self.createWidgets()
 
@@ -22,12 +24,16 @@ class Application(Frame):
         self.loadButton.pack(side=LEFT)
         self.searchButton = Button(topFrame, text='Search', command=self.searchGFWList)
         self.searchButton.pack(side=LEFT)
+        self.labelText = StringVar()
+        self.selectedItemLabel = Label(topFrame, textvariable=self.labelText)
+        self.selectedItemLabel.pack(side=LEFT)
 
         bottomFrame = Frame(self)
         bottomFrame.pack(fill=BOTH, expand=True)
         self.scrollBar = Scrollbar(bottomFrame)
         self.scrollBar.pack(side=RIGHT, fill=Y)
-        self.listBox = Listbox(bottomFrame, width=100, yscrollcommand = self.scrollBar.set)
+        self.listBox = Listbox(bottomFrame, width=100, yscrollcommand = self.scrollBar.set, exportselection=False, selectmode='single')
+        self.listBox.bind('<<ListboxSelect>>', self.onGFWListItemSelect)
         self.listBox.pack(side=LEFT, fill=BOTH, padx=5, pady=5, expand=True)
         self.scrollBar.config(command = self.listBox.yview)
 
@@ -48,13 +54,38 @@ class Application(Frame):
                 if isEnumeratingRules:
                     self.listBox.insert(END, line.strip().strip('\",'))
 
+    def onGFWListItemSelect(self, event):
+        # messagebox.showinfo('Hi', self.listBox.curselection())
+        self.listBox.select_includes(self.listBox.curselection())
+        self.labelText.set('Current: %d, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
+
     def searchGFWList(self):
         itemToSearchFor = self.nameInput.get().strip()
-        for index in range(self.listBox.size()):
-            if itemToSearchFor == self.listBox.get(index):
-                messagebox.showinfo('Message', 'yes')
-                self.listBox.selection_set(index)
+        if itemToSearchFor == '':
+            return
+
+        startSearchIndex = 0
+        foundItem = False
+
+        if itemToSearchFor == self.lastSearchedItem:
+            startSearchIndex = self.lastSearchedItemIndex + 1
+
+        foundItem = self.__searchListBox(itemToSearchFor, startSearchIndex, self.listBox.size())
+
+        if not foundItem:
+            self.__searchListBox(itemToSearchFor, 0, startSearchIndex-1)
+
+    def __searchListBox(self, itemToSearchFor, start, end):
+        for index in range(start, end):
+            if itemToSearchFor in self.listBox.get(index):
+                self.listBox.select_clear(self.lastSearchedItemIndex)
+                self.listBox.select_set(index)
+                self.listBox.activate(index)
                 self.listBox.see(index)
+                self.lastSearchedItem = itemToSearchFor
+                self.lastSearchedItemIndex = index
+                return True
+        return False
 
 app = Application()
 app.mainloop()
