@@ -18,15 +18,25 @@ class Application(Frame):
 
         topFrame = Frame(self)
         topFrame.pack(fill=X)
+
         self.nameInput = Entry(topFrame)
         self.nameInput.pack(fill=X, expand=True)
+
         self.loadButton = Button(topFrame, text='Load', command=self.loadGFWList)
         self.loadButton.pack(side=LEFT)
+
         self.searchButton = Button(topFrame, text='Search', command=self.searchGFWList)
         self.searchButton.pack(side=LEFT)
+
         self.labelText = StringVar()
         self.selectedItemLabel = Label(topFrame, textvariable=self.labelText)
         self.selectedItemLabel.pack(side=LEFT)
+
+        self.deleteButton = Button(topFrame, text='Delete Site', command=self.deleteSite)
+        self.deleteButton.pack(side=RIGHT)
+
+        self.addButton = Button(topFrame, text='Add Site', command=self.addSite)
+        self.addButton.pack(side=RIGHT)
 
         bottomFrame = Frame(self)
         bottomFrame.pack(fill=BOTH, expand=True)
@@ -67,17 +77,29 @@ class Application(Frame):
         startSearchIndex = 0
         foundItem = False
 
-        if itemToSearchFor == self.lastSearchedItem:
-            startSearchIndex = self.lastSearchedItemIndex + 1
+        #if itemToSearchFor == self.lastSearchedItem:
+        #    startSearchIndex = self.lastSearchedItemIndex + 1
+        if (self.listBox.curselection()):
+            startSearchIndex = self.listBox.curselection()[0] + 1
 
         foundItem = self.__searchListBox(itemToSearchFor, startSearchIndex, self.listBox.size())
 
         if not foundItem:
             self.__searchListBox(itemToSearchFor, 0, startSearchIndex-1)
 
+    def addSite(self):
+        messagebox.showinfo('Adding a new site', 'Adding ' + self.nameInput.get().strip())
+        self.listBox.insert(0, self.nameInput.get().strip())
+
+    def deleteSite(self):
+        messagebox.showinfo('Deleting a site', 'Deleting ' + self.listBox.get(self.listBox.curselection()))
+        self.listBox.delete(self.listBox.curselection())
+
     def __searchListBox(self, itemToSearchFor, start, end):
         for index in range(start, end):
             if itemToSearchFor in self.listBox.get(index):
+                if (self.listBox.curselection()):
+                    self.listBox.select_clear(self.listBox.curselection())
                 self.listBox.select_clear(self.lastSearchedItemIndex)
                 self.listBox.select_set(index)
                 self.listBox.activate(index)
