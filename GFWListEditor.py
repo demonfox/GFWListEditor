@@ -1,10 +1,24 @@
+from io import StringIO
+from shutil import copyfile
 from tkinter import *
+import datetime
 import tkinter.messagebox as messagebox
 
 class Application(Frame):
+    NOT_INITIALIZED = 0
+    AT_START_OF_RULES = 1
+    SCANNING_RULES = 2
+    SCANNING_SECTION_AFTER_RULES = 3
+    DONE_SCANNING = 4
+
     def __init__(self, master=None):
         self.lastSearchedItem = ''
         self.lastSearchedItemIndex = -1
+        self.gfwlistFile = '/Users/demonfox/.ShadowsocksX/gfwlist.js'
+        self.currentState = Application.NOT_INITIALIZED
+        self.sectionBeforeRules = StringIO()
+        self.sectionAfterRules = StringIO()
+
         Frame.__init__(self, master)
         self.createWidgets()
 
@@ -38,36 +52,51 @@ class Application(Frame):
         self.addButton = Button(topFrame, text='Add Site', command=self.addSite)
         self.addButton.pack(side=RIGHT)
 
-        bottomFrame = Frame(self)
-        bottomFrame.pack(fill=BOTH, expand=True)
-        self.scrollBar = Scrollbar(bottomFrame)
+        middleFrame = Frame(self)
+        middleFrame.pack(fill=BOTH, expand=True)
+        self.scrollBar = Scrollbar(middleFrame)
         self.scrollBar.pack(side=RIGHT, fill=Y)
-        self.listBox = Listbox(bottomFrame, width=100, yscrollcommand = self.scrollBar.set, exportselection=False, selectmode='single')
+        self.listBox = Listbox(middleFrame, width=100, yscrollcommand = self.scrollBar.set, exportselection=False, selectmode='single')
         self.listBox.bind('<<ListboxSelect>>', self.onGFWListItemSelect)
         self.listBox.pack(side=LEFT, fill=BOTH, padx=5, pady=5, expand=True)
         self.scrollBar.config(command = self.listBox.yview)
+
+        bottomFrame = Frame(self)
+        bottomFrame.pack(fill=X)
+        self.saveButton = Button(bottomFrame, text='Save Changes', command=self.saveChanges)
+        self.saveButton.pack(side=LEFT)
 
     def loadGFWList(self):
 #        name = self.nameInput.get() or 'world'
 #        messagebox.showinfo('Message', 'Hello, %s' % name)
         self.listBox.delete(0, self.listBox.size())
-        with open('/Users/demonfox/.ShadowsocksX/test.js', 'r') as f:
+        with open(self.gfwlistFile, 'r') as f:
             startOfRules = "var rules = ["
             endOfRules = "];"
-            isEnumeratingRules = False
+            self.currentState = Application.NOT_INITIALIZED
             for line in f.readlines():
                 if line.startswith(startOfRules):
-                    isEnumeratingRules = True
-                    continue  #skip this line: "var rules = ["
+                    self.currentState = Application.AT_START_OF_RULES
                 elif line.startswith(endOfRules):
-                    isEnumeratingRules = False
-                if isEnumeratingRules:
+                    self.currentState = Application.SCANNING_SECTION_AFTER_RULES
+                
+                if self.currentState == Application.NOT_INITIALIZED:
+                    self.sectionBeforeRules.write(line)
+                elif self.currentState == Application.AT_START_OF_RULES:
+                    self.sectionBeforeRules.write(line)
+                    self.currentState = Application.SCANNING_RULES
+                elif self.currentState == Application.SCANNING_RULES:
                     self.listBox.insert(END, line.strip().strip('\",'))
+                elif self.currentState == Application.SCANNING_SECTION_AFTER_RULES:
+                    self.sectionAfterRules.write(line)
+            self.currentState = Application.DONE_SCANNING
 
     def onGFWListItemSelect(self, event):
         # messagebox.showinfo('Hi', self.listBox.curselection())
+        if not self.listBox.curselection():
+            return
         self.listBox.select_includes(self.listBox.curselection())
-        self.labelText.set('Current: %d, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
+        self.labelText.set('Current: %s, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
 
     def searchGFWList(self):
         itemToSearchFor = self.nameInput.get().strip()
@@ -80,7 +109,7 @@ class Application(Frame):
         #if itemToSearchFor == self.lastSearchedItem:
         #    startSearchIndex = self.lastSearchedItemIndex + 1
         if (self.listBox.curselection()):
-            startSearchIndex = self.listBox.curselection()[0] + 1
+            startSearchIndex = int(self.listBox.curselection()[0]) + 1
 
         foundItem = self.__searchListBox(itemToSearchFor, startSearchIndex, self.listBox.size())
 
@@ -94,6 +123,21 @@ class Application(Frame):
     def deleteSite(self):
         messagebox.showinfo('Deleting a site', 'Deleting ' + self.listBox.get(self.listBox.curselection()))
         self.listBox.delete(self.listBox.curselection())
+
+    def saveChanges(self):
+        if (self.currentState != Application.DONE_SCANNING):
+            return
+
+        gfwlistBackupFile = self.gfwlistFile + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")        
+        # messagebox.showinfo('You are about to save the changes', 'Are you sure?')
+        result = messagebox.askquestion('You are about to save the changes', 'Are you sure?', icon='warning')
+        if result == 'yes':
+            copyfile(self.gfwlistFile, gfwlistBackupFile)
+            with open(self.gfwlistFile, 'w') as f:
+                f.write(self.sectionBeforeRules.getvalue())
+                f.write(',\n'.join('  "' + str(e) + '"' for e in self.listBox.get(0, END)))
+                f.write('\n')
+                f.write(self.sectionAfterRules.getvalue())
 
     def __searchListBox(self, itemToSearchFor, start, end):
         for index in range(start, end):
