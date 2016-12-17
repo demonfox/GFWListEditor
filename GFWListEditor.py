@@ -79,7 +79,7 @@ class Application(Frame):
                     self.currentState = Application.AT_START_OF_RULES
                 elif line.startswith(endOfRules):
                     self.currentState = Application.SCANNING_SECTION_AFTER_RULES
-                
+
                 if self.currentState == Application.NOT_INITIALIZED:
                     self.sectionBeforeRules.write(line)
                 elif self.currentState == Application.AT_START_OF_RULES:
@@ -128,7 +128,7 @@ class Application(Frame):
         if (self.currentState != Application.DONE_SCANNING):
             return
 
-        gfwlistBackupFile = self.gfwlistFile + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")        
+        gfwlistBackupFile = self.gfwlistFile + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         # messagebox.showinfo('You are about to save the changes', 'Are you sure?')
         result = messagebox.askquestion('You are about to save the changes', 'Are you sure?', icon='warning')
         if result == 'yes':
@@ -150,6 +150,7 @@ class Application(Frame):
                 self.listBox.see(index)
                 self.lastSearchedItem = itemToSearchFor
                 self.lastSearchedItemIndex = index
+                self.labelText.set('Current: %s, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
                 return True
         return False
 
