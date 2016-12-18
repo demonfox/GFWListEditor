@@ -2,6 +2,7 @@ from io import StringIO
 from shutil import copyfile
 from tkinter import *
 import datetime
+import glob, os
 import tkinter.messagebox as messagebox
 
 class Application(Frame):
@@ -14,6 +15,7 @@ class Application(Frame):
     def __init__(self, master=None):
         self.lastSearchedItem = ''
         self.lastSearchedItemIndex = -1
+        self.gfwlistFileDir = '/Users/demonfox/.ShadowsocksX/'
         self.gfwlistFile = '/Users/demonfox/.ShadowsocksX/gfwlist.js'
         self.currentState = Application.NOT_INITIALIZED
         self.sectionBeforeRules = StringIO()
@@ -31,7 +33,7 @@ class Application(Frame):
         self.pack(fill=BOTH, expand=True)
 
         topFrame = Frame(self)
-        topFrame.pack(fill=X)
+        topFrame.pack(padx=5, pady=5, fill=X)
 
         self.nameInput = Entry(topFrame)
         self.nameInput.pack(fill=X, expand=True)
@@ -53,7 +55,7 @@ class Application(Frame):
         self.addButton.pack(side=RIGHT)
 
         middleFrame = Frame(self)
-        middleFrame.pack(fill=BOTH, expand=True)
+        middleFrame.pack(padx=5, pady=5, fill=BOTH, expand=True)
         self.scrollBar = Scrollbar(middleFrame)
         self.scrollBar.pack(side=RIGHT, fill=Y)
         self.listBox = Listbox(middleFrame, width=100, yscrollcommand = self.scrollBar.set, exportselection=False, selectmode='single')
@@ -62,9 +64,11 @@ class Application(Frame):
         self.scrollBar.config(command = self.listBox.yview)
 
         bottomFrame = Frame(self)
-        bottomFrame.pack(fill=X)
+        bottomFrame.pack(padx=5, pady=3, fill=X)
         self.saveButton = Button(bottomFrame, text='Save Changes', command=self.saveChanges)
         self.saveButton.pack(side=LEFT)
+        self.cleanupBackupsButton = Button(bottomFrame, text='Cleanup old backups', command=self.cleanupBackups)
+        self.cleanupBackupsButton.pack(side=RIGHT)
 
     def loadGFWList(self):
 #        name = self.nameInput.get() or 'world'
@@ -128,7 +132,7 @@ class Application(Frame):
         if (self.currentState != Application.DONE_SCANNING):
             return
 
-        gfwlistBackupFile = self.gfwlistFile + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        gfwlistBackupFile = self.gfwlistFile + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S" + '.bk')
         # messagebox.showinfo('You are about to save the changes', 'Are you sure?')
         result = messagebox.askquestion('You are about to save the changes', 'Are you sure?', icon='warning')
         if result == 'yes':
@@ -138,6 +142,18 @@ class Application(Frame):
                 f.write(',\n'.join('  "' + str(e) + '"' for e in self.listBox.get(0, END)))
                 f.write('\n')
                 f.write(self.sectionAfterRules.getvalue())
+
+    def cleanupBackups(self):
+        result = messagebox.askquestion('You are about to save the changes', 'Are you sure?', icon='warning')
+        if result == 'yes':
+            files = []
+            # for (dirpath, dirname, filenames) in walk(self.gfwlistFileDir):
+            #     files.extend(filenames)
+            # for f in files:
+            #     print (f)
+            bkups = glob.glob(os.path.join(self.gfwlistFileDir, '*.bk'))
+            for f in bkups[:len(bkups)-1]:
+                os.remove(f)
 
     def __searchListBox(self, itemToSearchFor, start, end):
         for index in range(start, end):
