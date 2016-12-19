@@ -1,6 +1,7 @@
 from io import StringIO
 from shutil import copyfile
 from tkinter import *
+import configparser
 import datetime
 import glob, os
 import tkinter.messagebox as messagebox
@@ -15,8 +16,10 @@ class Application(Frame):
     def __init__(self, master=None):
         self.lastSearchedItem = ''
         self.lastSearchedItemIndex = -1
-        self.gfwlistFileDir = '/Users/demonfox/.ShadowsocksX/'
-        self.gfwlistFile = '/Users/demonfox/.ShadowsocksX/gfwlist.js'
+        self.config = configparser.ConfigParser()
+        self.config.read('config.ini')
+        self.gfwlistFileDir = self.config['General']['GFWListFileDir']
+        self.gfwlistFile = self.config['General']['GFWListFileName']
         self.currentState = Application.NOT_INITIALIZED
         self.sectionBeforeRules = StringIO()
         self.sectionAfterRules = StringIO()
@@ -75,8 +78,8 @@ class Application(Frame):
 #        messagebox.showinfo('Message', 'Hello, %s' % name)
         self.listBox.delete(0, self.listBox.size())
         with open(self.gfwlistFile, 'r') as f:
-            startOfRules = "var rules = ["
-            endOfRules = "];"
+            startOfRules = self.config['General']['StartOfRules']
+            endOfRules = self.config['General']['EndOfRules']
             self.currentState = Application.NOT_INITIALIZED
             for line in f.readlines():
                 if line.startswith(startOfRules):
