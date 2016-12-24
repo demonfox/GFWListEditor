@@ -47,8 +47,8 @@ class Application(Frame):
         self.searchButton = Button(topFrame, text='Search', command=self.searchGFWList)
         self.searchButton.pack(side=LEFT)
 
-        self.labelText = StringVar()
-        self.selectedItemLabel = Label(topFrame, textvariable=self.labelText)
+        self.selectedItemLabelText = StringVar()
+        self.selectedItemLabel = Label(topFrame, textvariable=self.selectedItemLabelText)
         self.selectedItemLabel.pack(side=LEFT)
 
         self.deleteButton = Button(topFrame, text='Delete Site', command=self.deleteSite)
@@ -56,6 +56,11 @@ class Application(Frame):
 
         self.addButton = Button(topFrame, text='Add Site', command=self.addSite)
         self.addButton.pack(side=RIGHT)
+
+        self.totalItemsLabelText = StringVar()
+        self.totalItemsLabel = Label(topFrame, textvariable=self.totalItemsLabelText)
+        self.totalItemsLabel.pack(side=RIGHT)
+
 
         middleFrame = Frame(self)
         middleFrame.pack(padx=5, pady=5, fill=BOTH, expand=True)
@@ -77,6 +82,10 @@ class Application(Frame):
 #        name = self.nameInput.get() or 'world'
 #        messagebox.showinfo('Message', 'Hello, %s' % name)
         self.listBox.delete(0, self.listBox.size())
+        self.sectionBeforeRules.close()
+        self.sectionAfterRules.close()
+        self.sectionBeforeRules = StringIO()
+        self.sectionAfterRules = StringIO()
         with open(self.gfwlistFile, 'r') as f:
             startOfRules = self.config['General']['StartOfRules']
             endOfRules = self.config['General']['EndOfRules']
@@ -97,13 +106,14 @@ class Application(Frame):
                 elif self.currentState == Application.SCANNING_SECTION_AFTER_RULES:
                     self.sectionAfterRules.write(line)
             self.currentState = Application.DONE_SCANNING
+            self.totalItemsLabelText.set('Total Sites: %d' % self.listBox.size())
 
     def onGFWListItemSelect(self, event):
         # messagebox.showinfo('Hi', self.listBox.curselection())
         if not self.listBox.curselection():
             return
         self.listBox.select_includes(self.listBox.curselection())
-        self.labelText.set('Current: %s, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
+        self.selectedItemLabelText.set('Current: %s, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
 
     def searchGFWList(self):
         itemToSearchFor = self.nameInput.get().strip()
@@ -124,12 +134,14 @@ class Application(Frame):
             self.__searchListBox(itemToSearchFor, 0, startSearchIndex-1)
 
     def addSite(self):
-        messagebox.showinfo('Adding a new site', 'Adding ' + self.nameInput.get().strip())
+        #messagebox.showinfo('Adding a new site', 'Adding ' + self.nameInput.get().strip())
         self.listBox.insert(0, self.nameInput.get().strip())
+        self.totalItemsLabelText.set('Total Sites: %d' % self.listBox.size())
 
     def deleteSite(self):
-        messagebox.showinfo('Deleting a site', 'Deleting ' + self.listBox.get(self.listBox.curselection()))
+        #messagebox.showinfo('Deleting a site', 'Deleting ' + self.listBox.get(self.listBox.curselection()))
         self.listBox.delete(self.listBox.curselection())
+        self.totalItemsLabelText.set('Total Sites: %d' % self.listBox.size())
 
     def saveChanges(self):
         if (self.currentState != Application.DONE_SCANNING):
@@ -169,7 +181,7 @@ class Application(Frame):
                 self.listBox.see(index)
                 self.lastSearchedItem = itemToSearchFor
                 self.lastSearchedItemIndex = index
-                self.labelText.set('Current: %s, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
+                self.selectedItemLabelText.set('Current: %s, %s' % (self.listBox.curselection()[0], self.listBox.get(self.listBox.curselection())))
                 return True
         return False
 
