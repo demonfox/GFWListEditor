@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from io import StringIO
 from shutil import copyfile
 from tkinter import *
