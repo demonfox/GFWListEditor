@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-from io import StringIO
-from shutil import copyfile
-from tkinter import *
 import configparser
 import datetime
 import glob, os
 import tkinter.messagebox as messagebox
+from azure.storage.file import FileService
+from io import BytesIO
+from io import StringIO
+from io import TextIOWrapper
+from shutil import copyfile
+from tkinter import *
 
 class Application(Frame):
     NOT_INITIALIZED = 0
@@ -20,8 +23,14 @@ class Application(Frame):
         self.lastSearchedItemIndex = -1
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
-        self.gfwlistFileDir = self.config['General']['GFWListFileDir']
-        self.gfwlistFile = self.config['General']['GFWListFileName']
+        self.gfwlistFileDir = self.config['General']['GFWListLocalFileDir']
+        self.gfwlistFile = self.config['General']['GFWListLocalFileName']
+        self.azureAccountName = self.config['General']['AzureAccountName']
+        self.azureAccountKey = self.config['General']['AzureAccountKey']
+        self.azureFileServiceDomain = self.config['General']['AzureFileServiceDomain']
+        self.azureFileShareName = self.config['General']['AzureFileShareName']
+        self.azureFileShareFileDir = self.config['General']['AzureFileShareFileDir']
+        self.azureFileShareFileName = self.config['General']['AzureFileShareFileName']
         self.currentState = Application.NOT_INITIALIZED
         self.sectionBeforeRules = StringIO()
         self.sectionAfterRules = StringIO()
@@ -83,12 +92,15 @@ class Application(Frame):
     def loadGFWList(self):
 #        name = self.nameInput.get() or 'world'
 #        messagebox.showinfo('Message', 'Hello, %s' % name)
+        # notice: the catch here is if your local file does not match what is on the file share, then
+        # the first time you load it, it will not take effect on your local machine until you save it
+        # once first.
         self.listBox.delete(0, self.listBox.size())
         self.sectionBeforeRules.close()
         self.sectionAfterRules.close()
         self.sectionBeforeRules = StringIO()
         self.sectionAfterRules = StringIO()
-        with open(self.gfwlistFile, 'r') as f:
+        with self.openGFWListFile() as f:
             startOfRules = self.config['General']['StartOfRules']
             endOfRules = self.config['General']['EndOfRules']
             self.currentState = Application.NOT_INITIALIZED
@@ -109,6 +121,27 @@ class Application(Frame):
                     self.sectionAfterRules.write(line)
             self.currentState = Application.DONE_SCANNING
             self.totalItemsLabelText.set('Total Sites: %d' % self.listBox.size())
+
+    def openGFWListFile(self):
+        azureFileService = FileService(account_name=self.azureAccountName, account_key=self.azureAccountKey)
+        # the following snippet creates a file share and a directory
+        # azureFileService.create_share('myshare')
+        # azureFileService.create_directory('myshare', 'GFWListEditor')
+        
+        # this scans the file share for all directories
+        # generator = azureFileService.list_directories_and_files('myshare')
+        # for fileOrDir in generator:
+        #    print(fileOrDir.name)
+        
+        # this uploads a file to the target directory
+        # azureFileService.create_file_from_path('myshare', 'GFWListEditor', self.gfwlistFile.rsplit('/', 1)[1], self.gfwlistFile) 
+        
+        # this downloads a file to a stream
+        gfwlistFileStream = BytesIO()
+        azureFileService.get_file_to_stream(self.azureFileShareName, self.azureFileShareFileDir, self.azureFileShareFileName, gfwlistFileStream)
+        gfwlistFileStream.seek(0)
+        return TextIOWrapper(gfwlistFileStream)
+        # return open(self.gfwlistFile, 'r') 
 
     def onGFWListItemSelect(self, event):
         # messagebox.showinfo('Hi', self.listBox.curselection())
@@ -149,28 +182,43 @@ class Application(Frame):
         if (self.currentState != Application.DONE_SCANNING):
             return
 
-        gfwlistBackupFile = self.gfwlistFile + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S" + '.bk')
+        gfwlistBackupFile = self.azureFileShareFileName + '.' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S" + '.bk')
         # messagebox.showinfo('You are about to save the changes', 'Are you sure?')
         result = messagebox.askquestion('You are about to save the changes', 'Are you sure?', icon='warning')
         if result == 'yes':
-            copyfile(self.gfwlistFile, gfwlistBackupFile)
+            # this is for copying file locally: copyfile(self.gfwlistFile, gfwlistBackupFile)
+            azureFileService = FileService(account_name=self.azureAccountName, account_key=self.azureAccountKey)
+            sourceUrl = 'https://%s.%s/%s/%s/%s' % (self.azureAccountName, self.azureFileServiceDomain, self.azureFileShareName, self.azureFileShareFileDir, self.azureFileShareFileName)
+            azureFileService.copy_file(self.azureFileShareName, self.azureFileShareFileDir, gfwlistBackupFile, sourceUrl)
+            # the folliwng is for writing file locally
             with open(self.gfwlistFile, 'w') as f:
                 f.write(self.sectionBeforeRules.getvalue())
                 f.write(',\n'.join('  "' + str(e) + '"' for e in self.listBox.get(0, END)))
                 f.write('\n')
                 f.write(self.sectionAfterRules.getvalue())
+            
+            # then write it to the file share
+            azureFileService.create_file_from_path(self.azureFileShareName, self.azureFileShareFileDir, self.azureFileShareFileName, self.gfwlistFile)
 
     def cleanupBackups(self):
         result = messagebox.askquestion('You are about to save the changes', 'Are you sure?', icon='warning')
         if result == 'yes':
-            files = []
+            # files = []
             # for (dirpath, dirname, filenames) in walk(self.gfwlistFileDir):
             #     files.extend(filenames)
             # for f in files:
             #     print (f)
-            bkups = glob.glob(os.path.join(self.gfwlistFileDir, '*.bk'))
-            for f in bkups[:len(bkups)-1]:
-                os.remove(f)
+            
+            # the following is for cleaning up files locally
+            # bkups = glob.glob(os.path.join(self.gfwlistFileDir, '*.bk'))
+            # for f in bkups[:len(bkups)-1]:
+            #     os.remove(f)
+            
+            azureFileService = FileService(account_name=self.azureAccountName, account_key=self.azureAccountKey)
+            generator = azureFileService.list_directories_and_files(self.azureFileShareName, self.azureFileShareFileDir)
+            for fileOrDir in generator:
+                if (fileOrDir.name.endswith('.bk')):
+                    azureFileService.delete_file(self.azureFileShareName, self.azureFileShareFileDir, fileOrDir.name)
 
     def __searchListBox(self, itemToSearchFor, start, end):
         for index in range(start, end):
